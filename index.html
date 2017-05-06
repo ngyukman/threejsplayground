@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>3D Curtain Demo</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+
+		<link rel="stylesheet" type="text/css" href="http://cdn.jsdelivr.net/jquery.slick/1.6.0/slick.css" />
+		<link rel="stylesheet" type="text/css" href="http://cdn.jsdelivr.net/jquery.slick/1.6.0/slick-theme.css" />
+
+		<link rel="stylesheet" href="https://static2.sharepointonline.com/files/fabric/office-ui-fabric-js/1.2.0/css/fabric.min.css" />
+		<link rel="stylesheet" href="https://static2.sharepointonline.com/files/fabric/office-ui-fabric-js/1.2.0/css/fabric.components.min.css" />
+		<style>
+			body {
+				font-family: Monospace;
+				background-color: #fff;
+				color: #fff;
+				margin: 0px;
+				overflow: hidden;
+			}
+			#info {
+				color: #fff;
+				position: absolute;
+				top: 10px;
+				width: 100%;
+				text-align: center;
+				z-index: 100;
+				display:block;
+			}
+			#info a, .button { color: #f00; font-weight: bold; text-decoration: underline; cursor: pointer }
+			li div {
+				width: 100%;
+				height: 100px;
+				overflow: hidden;
+			}
+			div img {
+				overflow: hidden;
+				zoom: 0.3;
+			}
+			li { cursor: pointer; }
+			canvas {
+				background-image: url('room.jpg');
+				background-position: center;
+				background-repeat: no-repeat;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div class="ms-Grid">
+			<div class="ms-Grid-row">
+				<div class="ms-Grid-col ms-u-sm6 ms-u-md8 ms-u-lg10" id="roomContainer">
+				</div>
+				<div class="ms-Grid-col ms-u-sm6 ms-u-md4 ms-u-lg2">
+					<ul>
+						<li><div onclick="replaceTexture(this);"><img src="texture/30.jpg"/></div></li>
+						<li><div onclick="replaceTexture(this);"><img src="texture/31.jpg"/></div></li>
+						<li><div onclick="replaceTexture(this);"><img src="texture/32.jpg"/></div></li>
+						<li><div onclick="replaceTexture(this);"><img src="texture/33.jpg"/></div></li>
+						<li><div onclick="replaceTexture(this);"><img src="texture/sample.jpg"/></div></li>
+					</ul>
+				</div>
+			</div>
+		</div>
+
+		<script src="https://static2.sharepointonline.com/files/fabric/office-ui-fabric-js/1.2.0/js/fabric.min.js"></script>
+		<script src="http://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+		<script src="http://cdn.jsdelivr.net/jquery.slick/1.6.0/slick.min.js"></script>
+
+		<script src="http://cdnjs.cloudflare.com/ajax/libs/three.js/85/three.min.js"></script>
+		<script src="OBJLoader.js"></script>
+        <script src="OrbitControl.js"></script>
+
+		<script>
+
+			var container;
+			var camera, scene, renderer;
+			var mouseX = 0, mouseY = 0;
+
+			var windowHalfX = window.innerWidth / 2;
+			var windowHalfY = window.innerHeight / 2;
+
+			var texture = new THREE.Texture();
+
+			init();
+			animate();
+
+			function replaceTexture(imageSrc) {
+				var loader = new THREE.ImageLoader();
+				loader.load( imageSrc.childNodes[0].src, function (image) {
+					texture.image = image;
+					texture.magFilter = THREE.NearestFilter;
+					texture.minFilter = THREE.LinearMipMapLinearFilter;
+					texture.needsUpdate = true;
+				});
+			}
+
+			function init() {
+
+				container = document.getElementById('roomContainer');
+
+				camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 1, 10000 );
+				camera.position.x = -1765;
+				camera.position.y = 200;
+				camera.position.z = 2702;
+                camera.zoom = 0.32;
+                camera.updateProjectionMatrix();
+
+				// scene
+
+				scene = new THREE.Scene();
+                scene.add( camera );
+                //scene.background = new THREE.Color( 0xff000000 );
+
+				var ambient = new THREE.AmbientLight( 0x101030 );
+				scene.add( ambient );
+
+				var directionalLight = new THREE.DirectionalLight( 0xffeedd );
+				directionalLight.position.set( 0, 0, 1 );
+				scene.add( directionalLight );
+
+				// texture
+
+				var manager = new THREE.LoadingManager();
+				manager.onProgress = function ( item, loaded, total ) {
+
+					console.log( item, loaded, total );
+
+				};
+
+				var onProgress = function ( xhr ) {
+					if ( xhr.lengthComputable ) {
+						var percentComplete = xhr.loaded / xhr.total * 100;
+						console.log( Math.round(percentComplete, 2) + '% downloaded' );
+					}
+				};
+
+				var onError = function ( xhr ) {
+				};
+
+
+				var loader = new THREE.ImageLoader( manager );
+				loader.load( 'texture/30.jpg', function ( image ) {
+					texture.magFilter = THREE.NearestFilter;
+					texture.minFilter = THREE.LinearMipMapLinearFilter;
+					texture.image = image;
+					texture.needsUpdate = true;
+				});
+
+				// model
+
+				var loader = new THREE.OBJLoader( manager );
+				loader.load( 'Curtain.obj', function ( object ) {
+
+					object.traverse( function ( child ) {
+						if ( child instanceof THREE.Mesh ) {
+							child.material.map = texture;
+							child.material.side = THREE.DoubleSide;
+						}
+					} );
+
+					object.position.y = -1200;
+					object.position.x = -600;
+					scene.add( object );
+
+				}, onProgress, onError );
+
+                renderer = new THREE.WebGLRenderer( { alpha: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( container.clientWidth, window.innerHeight );
+				container.appendChild( renderer.domElement );
+
+                var controls = new THREE.OrbitControls( camera, renderer.domElement );
+				controls.maxPolarAngle = Math.PI * 0.5;
+				controls.minDistance = 1000;
+				controls.maxDistance = 7500;
+
+				//document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+
+				//
+
+				window.addEventListener( 'resize', onWindowResize, false );
+				onWindowResize();
+
+			}
+
+			function onWindowResize() {
+
+				windowHalfX = container.clientWidth / 2;
+				windowHalfY = window.innerHeight / 2;
+
+				camera.aspect = container.clientWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( container.clientWidth, window.innerHeight );
+
+				$('canvas').css('background-size', window.innerHeight * 1.2 + 'px 100%');
+			}
+/*
+			function onDocumentMouseMove( event ) {
+
+				mouseX = ( event.clientX - windowHalfX ) / 2;
+				mouseY = ( event.clientY - windowHalfY ) / 2;
+
+			}
+*/
+			//
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				//var time = Date.now();
+				//windStrength = Math.cos( time / 7000 ) * 20 + 40;
+				//windForce.set( Math.sin( time / 2000 ), Math.cos( time / 3000 ), Math.sin( time / 1000 ) ).normalize().multiplyScalar( windStrength );
+
+				//simulate( time );
+				render();
+//				stats.update();
+			}
+
+			function render() {
+				/*var p = cloth.particles;
+
+				for ( var i = 0, il = p.length; i < il; i ++ ) {
+					clothGeometry.vertices[ i ].copy( p[ i ].position );
+				}
+
+				clothGeometry.computeFaceNormals();
+				clothGeometry.computeVertexNormals();
+				clothGeometry.normalsNeedUpdate = true;
+				clothGeometry.verticesNeedUpdate = true;
+*/
+				camera.lookAt( scene.position );
+				renderer.render( scene, camera );
+			}
+
+		</script>
+
+
+	</body>
+</html>
